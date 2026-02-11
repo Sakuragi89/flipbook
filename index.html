@@ -154,6 +154,142 @@
             opacity: 1;
             border-color: #667eea;
         }
+        
+        /* Gallery Modal */
+        .gallery-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.95);
+            z-index: 1000;
+            cursor: zoom-out;
+        }
+        
+        .gallery-modal.active {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .gallery-content {
+            position: relative;
+            max-width: 95%;
+            max-height: 95%;
+            cursor: default;
+        }
+        
+        .gallery-image {
+            max-width: 100%;
+            max-height: 90vh;
+            object-fit: contain;
+            transition: transform 0.3s ease;
+            cursor: move;
+        }
+        
+        .zoom-controls {
+            position: fixed;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 15px;
+            background: rgba(255, 255, 255, 0.1);
+            padding: 15px 25px;
+            border-radius: 50px;
+            backdrop-filter: blur(10px);
+        }
+        
+        .zoom-btn {
+            background: rgba(255, 255, 255, 0.9);
+            color: #333;
+            border: none;
+            width: 45px;
+            height: 45px;
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 20px;
+            font-weight: bold;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .zoom-btn:hover {
+            background: white;
+            transform: scale(1.1);
+        }
+        
+        .zoom-level {
+            color: white;
+            font-size: 16px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            padding: 0 10px;
+        }
+        
+        .close-gallery {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: rgba(255, 255, 255, 0.9);
+            color: #333;
+            border: none;
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 28px;
+            font-weight: bold;
+            transition: all 0.3s ease;
+        }
+        
+        .close-gallery:hover {
+            background: white;
+            transform: rotate(90deg);
+        }
+        
+        .gallery-nav {
+            position: fixed;
+            top: 50%;
+            transform: translateY(-50%);
+            background: rgba(255, 255, 255, 0.9);
+            color: #333;
+            border: none;
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 24px;
+            transition: all 0.3s ease;
+        }
+        
+        .gallery-nav:hover {
+            background: white;
+            transform: translateY(-50%) scale(1.1);
+        }
+        
+        .gallery-nav.prev {
+            left: 20px;
+        }
+        
+        .gallery-nav.next {
+            right: 20px;
+        }
+        
+        .click-hint {
+            position: absolute;
+            bottom: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: #999;
+            font-size: 14px;
+            text-align: center;
+        }
     </style>
 </head>
 <body>
@@ -165,6 +301,7 @@
     <div class="flipbook-container">
         <div class="flipbook-viewer" id="viewer">
             <div class="loading">Loading screenshots...</div>
+            <div class="click-hint">Click on image to open in gallery view</div>
         </div>
         
         <div class="controls">
@@ -179,15 +316,36 @@
             <a href="admin.html">🔐 Admin Panel - Upload Screenshots</a>
         </div>
     </div>
+    
+    <!-- Gallery Modal -->
+    <div class="gallery-modal" id="galleryModal" onclick="closeGallery(event)">
+        <button class="close-gallery" onclick="closeGallery(event)">×</button>
+        <button class="gallery-nav prev" onclick="galleryPrev(event)">‹</button>
+        <button class="gallery-nav next" onclick="galleryNext(event)">›</button>
+        
+        <div class="gallery-content" onclick="event.stopPropagation()">
+            <img id="galleryImage" class="gallery-image" alt="Gallery view">
+        </div>
+        
+        <div class="zoom-controls">
+            <button class="zoom-btn" onclick="zoomOut(event)">−</button>
+            <span class="zoom-level" id="zoomLevel">100%</span>
+            <button class="zoom-btn" onclick="zoomIn(event)">+</button>
+            <button class="zoom-btn" onclick="resetZoom(event)" title="Reset">⟲</button>
+        </div>
+    </div>
 
     <script>
         let currentPage = 0;
         let screenshots = [];
+        let zoomLevel = 1;
+        let isDragging = false;
+        let startX, startY, translateX = 0, translateY = 0;
         
         // GitHub configuration - UPDATE THESE VALUES
         const GITHUB_CONFIG = {
-            owner: 'Sakuragi89',
-            repo: 'flipbook',
+            owner: 'YOUR_GITHUB_USERNAME',
+            repo: 'YOUR_REPO_NAME',
             branch: 'main',
             path: 'screenshots'
         };
@@ -227,7 +385,7 @@
         function displayScreenshots() {
             const viewer = document.getElementById('viewer');
             const thumbnails = document.getElementById('thumbnails');
-            viewer.innerHTML = '';
+            viewer.innerHTML = '<div class="click-hint">Click on image to open in gallery view</div>';
             thumbnails.innerHTML = '';
             
             screenshots.forEach((url, index) => {
@@ -236,6 +394,8 @@
                 img.src = url;
                 img.className = 'flipbook-image';
                 if (index === 0) img.classList.add('active');
+                img.onclick = () => openGallery(index);
+                img.style.cursor = 'pointer';
                 viewer.appendChild(img);
                 
                 // Thumbnail
@@ -284,10 +444,136 @@
             }
         }
         
+        // Gallery functions
+        function openGallery(index) {
+            currentPage = index;
+            const modal = document.getElementById('galleryModal');
+            const galleryImage = document.getElementById('galleryImage');
+            
+            galleryImage.src = screenshots[index];
+            modal.classList.add('active');
+            resetZoom();
+            
+            // Update main viewer
+            goToPage(index);
+        }
+        
+        function closeGallery(event) {
+            event.stopPropagation();
+            const modal = document.getElementById('galleryModal');
+            modal.classList.remove('active');
+            resetZoom();
+        }
+        
+        function galleryNext(event) {
+            event.stopPropagation();
+            if (currentPage < screenshots.length - 1) {
+                currentPage++;
+                document.getElementById('galleryImage').src = screenshots[currentPage];
+                goToPage(currentPage);
+                resetZoom();
+            }
+        }
+        
+        function galleryPrev(event) {
+            event.stopPropagation();
+            if (currentPage > 0) {
+                currentPage--;
+                document.getElementById('galleryImage').src = screenshots[currentPage];
+                goToPage(currentPage);
+                resetZoom();
+            }
+        }
+        
+        // Zoom functions
+        function zoomIn(event) {
+            event.stopPropagation();
+            zoomLevel = Math.min(zoomLevel + 0.25, 5);
+            updateZoom();
+        }
+        
+        function zoomOut(event) {
+            event.stopPropagation();
+            zoomLevel = Math.max(zoomLevel - 0.25, 0.5);
+            updateZoom();
+        }
+        
+        function resetZoom(event) {
+            if (event) event.stopPropagation();
+            zoomLevel = 1;
+            translateX = 0;
+            translateY = 0;
+            updateZoom();
+        }
+        
+        function updateZoom() {
+            const img = document.getElementById('galleryImage');
+            img.style.transform = `scale(${zoomLevel}) translate(${translateX}px, ${translateY}px)`;
+            document.getElementById('zoomLevel').textContent = `${Math.round(zoomLevel * 100)}%`;
+            
+            // Enable/disable dragging based on zoom
+            img.style.cursor = zoomLevel > 1 ? 'move' : 'default';
+        }
+        
+        // Image dragging for zoomed view
+        const galleryImage = document.getElementById('galleryImage');
+        
+        galleryImage.addEventListener('mousedown', (e) => {
+            if (zoomLevel > 1) {
+                isDragging = true;
+                startX = e.clientX - translateX;
+                startY = e.clientY - translateY;
+                galleryImage.style.cursor = 'grabbing';
+            }
+        });
+        
+        document.addEventListener('mousemove', (e) => {
+            if (isDragging) {
+                translateX = e.clientX - startX;
+                translateY = e.clientY - startY;
+                updateZoom();
+            }
+        });
+        
+        document.addEventListener('mouseup', () => {
+            if (isDragging) {
+                isDragging = false;
+                if (zoomLevel > 1) {
+                    galleryImage.style.cursor = 'move';
+                }
+            }
+        });
+        
         // Keyboard navigation
         document.addEventListener('keydown', (e) => {
-            if (e.key === 'ArrowRight') nextPage();
-            if (e.key === 'ArrowLeft') prevPage();
+            const modal = document.getElementById('galleryModal');
+            const isGalleryOpen = modal.classList.contains('active');
+            
+            if (isGalleryOpen) {
+                if (e.key === 'ArrowRight') galleryNext(e);
+                if (e.key === 'ArrowLeft') galleryPrev(e);
+                if (e.key === 'Escape') closeGallery(e);
+                if (e.key === '+' || e.key === '=') zoomIn(e);
+                if (e.key === '-') zoomOut(e);
+                if (e.key === '0') resetZoom(e);
+            } else {
+                if (e.key === 'ArrowRight') nextPage();
+                if (e.key === 'ArrowLeft') prevPage();
+                if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    openGallery(currentPage);
+                }
+            }
+        });
+        
+        // Mouse wheel zoom
+        galleryImage.addEventListener('wheel', (e) => {
+            e.preventDefault();
+            if (e.deltaY < 0) {
+                zoomIn(e);
+            } else {
+                zoomOut(e);
+            }
         });
         
         // Load screenshots on page load
