@@ -127,6 +127,30 @@ Visit `https://YOUR_USERNAME.github.io/YOUR_REPO_NAME/` to see your flipbook!
 
 Feel free to modify the CSS in both HTML files to match your style!
 
+New Features:
+
+🖼️ Click any image to open it in full-screen gallery mode
+🔍 Zoom in/out with +/- buttons (up to 500% zoom!)
+🖱️ Drag to pan when zoomed in
+⌨️ Keyboard shortcuts:
+
+Arrow keys: Navigate between images
++/- keys: Zoom in/out
+0 key: Reset zoom
+Escape: Close gallery
+Enter/Space: Open gallery
+
+
+🎯 Mouse wheel to zoom
+⟲ Reset button to return to 100%
+
+Gallery Controls:
+
+‹ › buttons to navigate while in gallery
+× button to close
+Zoom controls at the bottom
+Dark overlay for better image focus
+
 ## 📄 License
 
 Free to use and modify for your own projects!
