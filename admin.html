@@ -210,6 +210,40 @@
             font-size: 14px;
             color: #0c5460;
         }
+        
+        .drive-link-item {
+            background: #f8f9fa;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 12px 15px;
+            margin-bottom: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            word-break: break-all;
+        }
+        
+        .drive-link-item .link-text {
+            flex: 1;
+            font-size: 14px;
+            color: #333;
+            margin-right: 10px;
+        }
+        
+        .drive-link-item .remove-link {
+            background: #dc3545;
+            color: white;
+            border: none;
+            padding: 5px 12px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 12px;
+            white-space: nowrap;
+        }
+        
+        .drive-link-item .remove-link:hover {
+            background: #c82333;
+        }
     </style>
 </head>
 <body>
@@ -256,7 +290,25 @@
         </div>
         
         <div class="upload-section">
-            <h3 style="margin-bottom: 20px;">📤 Upload Screenshots</h3>
+            <h3 style="margin-bottom: 20px;">🔗 Google Drive Links</h3>
+            <p style="color: #666; margin-bottom: 15px; font-size: 14px;">
+                Add Google Drive shareable image links to display them in your flipbook
+            </p>
+            
+            <div class="form-group">
+                <label for="driveLink">Google Drive Image Link:</label>
+                <input type="text" id="driveLink" placeholder="https://drive.google.com/file/d/...">
+            </div>
+            
+            <button class="btn" onclick="addDriveLink()" style="margin-bottom: 20px;">
+                ➕ Add Drive Link
+            </button>
+            
+            <div id="driveLinksList" style="margin-bottom: 30px;"></div>
+            
+            <hr style="margin: 30px 0; border: none; border-top: 2px solid #eee;">
+            
+            <h3 style="margin-bottom: 20px;">📤 Upload Screenshots to GitHub</h3>
             
             <div class="drop-zone" id="dropZone" onclick="document.getElementById('fileInput').click()">
                 <div class="drop-zone-text">
@@ -283,15 +335,87 @@
 
     <script>
         let selectedFiles = [];
+        let driveLinks = [];
         
-        // Load saved config
+        // Load saved config and drive links
         window.addEventListener('load', () => {
             const config = JSON.parse(localStorage.getItem('githubConfig') || '{}');
             if (config.owner) document.getElementById('owner').value = config.owner;
             if (config.repo) document.getElementById('repo').value = config.repo;
             if (config.branch) document.getElementById('branch').value = config.branch;
             if (config.token) document.getElementById('token').value = config.token;
+            
+            // Load saved drive links
+            driveLinks = JSON.parse(localStorage.getItem('driveLinks') || '[]');
+            displayDriveLinks();
         });
+        
+        function addDriveLink() {
+            const input = document.getElementById('driveLink');
+            const link = input.value.trim();
+            
+            if (!link) {
+                showStatus('Please enter a Google Drive link!', 'error');
+                return;
+            }
+            
+            if (!link.includes('drive.google.com')) {
+                showStatus('Please enter a valid Google Drive link!', 'error');
+                return;
+            }
+            
+            // Convert to direct viewable link if it's a file link
+            let processedLink = link;
+            if (link.includes('/file/d/')) {
+                const fileId = link.split('/file/d/')[1].split('/')[0];
+                processedLink = `https://drive.google.com/uc?export=view&id=${fileId}`;
+            }
+            
+            driveLinks.push(processedLink);
+            localStorage.setItem('driveLinks', JSON.stringify(driveLinks));
+            
+            input.value = '';
+            displayDriveLinks();
+            generateConfigCode();
+            showStatus('✓ Drive link added successfully!', 'success');
+        }
+        
+        function removeDriveLink(index) {
+            driveLinks.splice(index, 1);
+            localStorage.setItem('driveLinks', JSON.stringify(driveLinks));
+            displayDriveLinks();
+            generateConfigCode();
+            showStatus('Drive link removed', 'success');
+        }
+        
+        function displayDriveLinks() {
+            const container = document.getElementById('driveLinksList');
+            
+            if (driveLinks.length === 0) {
+                container.innerHTML = '<p style="color: #999; font-size: 14px;">No Google Drive links added yet</p>';
+                return;
+            }
+            
+            container.innerHTML = driveLinks.map((link, index) => `
+                <div class="drive-link-item">
+                    <div class="link-text">${link.substring(0, 60)}...</div>
+                    <button class="remove-link" onclick="removeDriveLink(${index})">Remove</button>
+                </div>
+            `).join('');
+        }
+        
+        function generateConfigCode() {
+            if (driveLinks.length === 0) return;
+            
+            const code = `
+// Add this to your index.html configuration:
+const GDRIVE_CONFIG = {
+    enabled: true,
+    folderLinks: ${JSON.stringify(driveLinks, null, 4)}
+};`;
+            
+            console.log('📋 Copy this code to your index.html:', code);
+        }
         
         function saveConfig() {
             const config = {
